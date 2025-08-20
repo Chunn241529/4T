@@ -1,0 +1,456 @@
+import json
+from datetime import datetime
+
+def payload_genimage_realistic(client_id: str, positive_prompt: str, width: int, height: int) -> dict:
+    """
+    Tạo payload cho ComfyUI API dựa trên client_id, positive_prompt, width và height.
+
+    Args:
+        client_id (str): ID của client
+        positive_prompt (str): Prompt tích cực cho việc sinh ảnh
+        width (int): Chiều rộng ảnh
+        height (int): Chiều cao ảnh
+
+    Returns:
+        dict: Payload ComfyUI
+    """
+    return {
+        "client_id": client_id,
+        "prompt": {
+            "3": {
+                "inputs": {
+                    "seed": int(datetime.now().timestamp()),
+                    "steps": 20,
+                    "cfg": 5,
+                    "sampler_name": "euler_ancestral",
+                    "scheduler": "simple",
+                    "denoise": 1,
+                    "model": ["34", 0],
+                    "positive": ["6", 0],
+                    "negative": ["7", 0],
+                    "latent_image": ["5", 0]
+                },
+                "class_type": "KSampler",
+                "_meta": {"title": "KSampler"}
+            },
+            "5": {
+                "inputs": {
+                    "width": width,
+                    "height": height,
+                    "batch_size": 1
+                },
+                "class_type": "EmptyLatentImage",
+                "_meta": {"title": "Empty Latent Image"}
+            },
+            "6": {
+                "inputs": {
+                    "text": positive_prompt,
+                    "clip": ["34", 1]
+                },
+                "class_type": "CLIPTextEncode",
+                "_meta": {"title": "CLIP Text Encode (Prompt)"}
+            },
+            "7": {
+                "inputs": {
+                    "text": "lowres, worst quality, low quality, bad anatomy, worst aesthetic, jpeg artifacts, scan artifacts, compression artifacts, old, early, bokeh, distorted anatomy, bad proportions, missing body part, missing limb, unclear eyes, bad hands, mutated hands, fused fingers, fewer digits, extra digits, extra arms, missing arm, missing leg, open mouth, cross-eye, strabismus, lazy eye, bad legs, bad thighs, bad feet, bad toes, bad fingers, malformed hands, malformed feet, malformed legs, malformed thighs, extra legs, missing legs, extra thighs, missing thighs, fused toes, fused fingers, extra toes, missing toes",
+                    "clip": ["34", 1]
+                },
+                "class_type": "CLIPTextEncode",
+                "_meta": {"title": "CLIP Text Encode (Prompt)"}
+            },
+            "8": {
+                "inputs": {
+                    "samples": ["3", 0],
+                    "vae": ["16", 2]
+                },
+                "class_type": "VAEDecode",
+                "_meta": {"title": "VAE Decode"}
+            },
+            "11": {
+                "inputs": {
+                    "seed": int(datetime.now().timestamp()) + 1,
+                    "steps": 30,
+                    "cfg": 5,
+                    "sampler_name": "dpmpp_3m_sde",
+                    "scheduler": "karras",
+                    "denoise": 0.5,
+                    "model": ["34", 0],
+                    "positive": ["6", 0],
+                    "negative": ["7", 0],
+                    "latent_image": ["3", 0]
+                },
+                "class_type": "KSampler",
+                "_meta": {"title": "KSampler"}
+            },
+            "13": {
+                "inputs": {
+                    "samples": ["11", 0],
+                    "vae": ["16", 2]
+                },
+                "class_type": "VAEDecode",
+                "_meta": {"title": "VAE Decode"}
+            },
+            "16": {
+                "inputs": {
+                    "ckpt_name": "4T_Realistic.safetensors"
+                },
+                "class_type": "CheckpointLoaderSimple",
+                "_meta": {"title": "Load Checkpoint"}
+            },
+            "18": {
+                "inputs": {
+                    "images": ["8", 0]
+                },
+                "class_type": "PreviewImage",
+                "_meta": {"title": "Preview Image"}
+            },
+            "26": {
+                "inputs": {
+                    "lora_name": "face.safetensors",
+                    "strength_model": 0.8,
+                    "strength_clip": 1,
+                    "model": ["16", 0],
+                    "clip": ["16", 1]
+                },
+                "class_type": "LoraLoader",
+                "_meta": {"title": "Load LoRA"}
+            },
+            "30": {
+                "inputs": {
+                    "filename_prefix": "ComfyUI",
+                    "with_workflow": False,
+                    "metadata_extra": json.dumps({
+                        "Title": "Artwork by Ryn Wang",
+                        "Description": "",
+                        "Author": "Ryn Wang",
+                        "Keywords": ["art", "digital", "creative"],
+                        "Copyrights": "© 2025 Ryn Wang"
+                    }),
+                    "image": ["13", 0]
+                },
+                "class_type": "Save image with extra metadata [Crystools]",
+                "_meta": {"title": "🪛 Save image with extra metadata"}
+            },
+            "34": {
+                "inputs": {
+                    "lora_name": "details_body.safetensors",
+                    "strength_model": 0.8,
+                    "strength_clip": 1,
+                    "model": ["26", 0],
+                    "clip": ["26", 1]
+                },
+                "class_type": "LoraLoader",
+                "_meta": {"title": "Load LoRA"}
+            }
+        },
+        "extra_data": {
+            "extra_pnginfo": {
+                "workflow": {
+                    "id": "f677fc90-c65f-4c6f-9750-911b779df9e4",
+                    "revision": 0,
+                    "last_node_id": 34,
+                    "last_link_id": 58,
+                    "nodes": [
+                        {
+                            "id": 8,
+                            "type": "VAEDecode",
+                            "pos": [870, 110],
+                            "size": [210, 46],
+                            "flags": {"collapsed": True, "pinned": True},
+                            "order": 8,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "samples", "name": "samples", "type": "LATENT", "link": 7},
+                                {"label": "vae", "name": "vae", "type": "VAE", "link": 21}
+                            ],
+                            "outputs": [
+                                {"label": "IMAGE", "name": "IMAGE", "type": "IMAGE", "slot_index": 0, "links": [24]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "VAEDecode"},
+                            "widgets_values": []
+                        },
+                        {
+                            "id": 18,
+                            "type": "PreviewImage",
+                            "pos": [870, 150],
+                            "size": [560, 400],
+                            "flags": {"pinned": True},
+                            "order": 10,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "images", "name": "images", "type": "IMAGE", "link": 24}
+                            ],
+                            "outputs": [],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "PreviewImage"},
+                            "widgets_values": []
+                        },
+                        {
+                            "id": 5,
+                            "type": "EmptyLatentImage",
+                            "pos": [-360, 300],
+                            "size": [315, 106],
+                            "flags": {"pinned": True},
+                            "order": 0,
+                            "mode": 0,
+                            "inputs": [],
+                            "outputs": [
+                                {"label": "LATENT", "name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [2]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "EmptyLatentImage"},
+                            "widgets_values": [width, height, 1],
+                            "color": "#323",
+                            "bgcolor": "#535"
+                        },
+                        {
+                            "id": 16,
+                            "type": "CheckpointLoaderSimple",
+                            "pos": [-360, 100],
+                            "size": [315, 98],
+                            "flags": {"pinned": True},
+                            "order": 1,
+                            "mode": 0,
+                            "inputs": [],
+                            "outputs": [
+                                {"label": "MODEL", "name": "MODEL", "type": "MODEL", "slot_index": 0, "links": [34]},
+                                {"label": "CLIP", "name": "CLIP", "type": "CLIP", "slot_index": 1, "links": [35]},
+                                {"label": "VAE", "name": "VAE", "type": "VAE", "slot_index": 2, "links": [21, 22]}
+                            ],
+                            "properties": {
+                                "cnr_id": "comfy-core",
+                                "ver": "0.3.44",
+                                "Node name for S&R": "CheckpointLoaderSimple",
+                                "models": [
+                                    {
+                                        "name": "DreamShaper_8_pruned.safetensors",
+                                        "url": "https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors",
+                                        "directory": "checkpoints"
+                                    }
+                                ]
+                            },
+                            "widgets_values": ["4T_Realistic.safetensors"],
+                            "color": "#322",
+                            "bgcolor": "#533"
+                        },
+                        {
+                            "id": 27,
+                            "type": "Reroute",
+                            "pos": [504.9951171875, -17.457992553710938],
+                            "size": [75, 26],
+                            "flags": {"pinned": True},
+                            "order": 4,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "", "name": "", "type": "*", "link": 58}
+                            ],
+                            "outputs": [
+                                {"label": "", "name": "", "type": "MODEL", "links": [40, 41]}
+                            ],
+                            "properties": {"showOutputText": False, "horizontal": False}
+                        },
+                        {
+                            "id": 13,
+                            "type": "VAEDecode",
+                            "pos": [523.81103515625, 677.23779296875],
+                            "size": [210, 46],
+                            "flags": {"collapsed": False, "pinned": True},
+                            "order": 11,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "samples", "name": "samples", "type": "LATENT", "link": 15},
+                                {"label": "vae", "name": "vae", "type": "VAE", "link": 22}
+                            ],
+                            "outputs": [
+                                {"label": "IMAGE", "name": "IMAGE", "type": "IMAGE", "slot_index": 0, "links": [48]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "VAEDecode"},
+                            "widgets_values": []
+                        },
+                        {
+                            "id": 30,
+                            "type": "Save image with extra metadata [Crystools]",
+                            "pos": [781.5752563476562, 677.2682495117188],
+                            "size": [400, 344],
+                            "flags": {"pinned": True},
+                            "order": 12,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "image", "name": "image", "type": "IMAGE", "link": 48}
+                            ],
+                            "outputs": [
+                                {"label": "Metadata RAW", "name": "Metadata RAW", "type": "METADATA_RAW", "links": []}
+                            ],
+                            "properties": {"cnr_id": "comfyui-crystools", "ver": "1.27.3", "Node name for S&R": "Save image with extra metadata [Crystools]"},
+                            "widgets_values": [
+                                "ComfyUI",
+                                False,
+                                json.dumps({
+                                    "Title": "Artwork by Ryn Wang",
+                                    "Description": "",
+                                    "Author": "Ryn Wang",
+                                    "Keywords": ["art", "digital", "creative"],
+                                    "Copyrights": "© 2025 Ryn Wang"
+                                })
+                            ]
+                        },
+                        {
+                            "id": 26,
+                            "type": "LoraLoader",
+                            "pos": [-3.052993059158325, -156.7986602783203],
+                            "size": [270, 126],
+                            "flags": {"pinned": True},
+                            "order": 2,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "model", "name": "model", "type": "MODEL", "link": 34},
+                                {"label": "clip", "name": "clip", "type": "CLIP", "link": 35}
+                            ],
+                            "outputs": [
+                                {"label": "MODEL", "name": "MODEL", "type": "MODEL", "links": [54]},
+                                {"label": "CLIP", "name": "CLIP", "type": "CLIP", "links": [55]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.50", "Node name for S&R": "LoraLoader"},
+                            "widgets_values": ["face.safetensors", 0.8, 1]
+                        },
+                        {
+                            "id": 11,
+                            "type": "KSampler",
+                            "pos": [80, 680],
+                            "size": [315, 474],
+                            "flags": {"pinned": True},
+                            "order": 9,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "model", "name": "model", "type": "MODEL", "link": 41},
+                                {"label": "positive", "name": "positive", "type": "CONDITIONING", "link": 12},
+                                {"label": "negative", "name": "negative", "type": "CONDITIONING", "link": 13},
+                                {"label": "latent_image", "name": "latent_image", "type": "LATENT", "link": 47}
+                            ],
+                            "outputs": [
+                                {"label": "LATENT", "name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [15]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "KSampler"},
+                            "widgets_values": [int(datetime.now().timestamp()) + 1, "randomize", 30, 5, "dpmpp_3m_sde", "karras", 0.5]
+                        },
+                        {
+                            "id": 3,
+                            "type": "KSampler",
+                            "pos": [510, 80],
+                            "size": [315, 474],
+                            "flags": {"pinned": True},
+                            "order": 7,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "model", "name": "model", "type": "MODEL", "link": 40},
+                                {"label": "positive", "name": "positive", "type": "CONDITIONING", "link": 4},
+                                {"label": "negative", "name": "negative", "type": "CONDITIONING", "link": 6},
+                                {"label": "latent_image", "name": "latent_image", "type": "LATENT", "link": 2}
+                            ],
+                            "outputs": [
+                                {"label": "LATENT", "name": "LATENT", "type": "LATENT", "slot_index": 0, "links": [7, 47]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "KSampler"},
+                            "widgets_values": [int(datetime.now().timestamp()), "randomize", 20, 5, "euler_ancestral", "simple", 1]
+                        },
+                        {
+                            "id": 7,
+                            "type": "CLIPTextEncode",
+                            "pos": [26.126020431518555, 348.9054260253906],
+                            "size": [420, 180],
+                            "flags": {"collapsed": False, "pinned": True},
+                            "order": 6,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "clip", "name": "clip", "type": "CLIP", "link": 57}
+                            ],
+                            "outputs": [
+                                {"label": "CONDITIONING", "name": "CONDITIONING", "type": "CONDITIONING", "slot_index": 0, "links": [6, 13]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "CLIPTextEncode"},
+                            "widgets_values": ["lowres, worst quality, low quality, bad anatomy, worst aesthetic, jpeg artifacts, scan artifacts, compression artifacts, old, early, bokeh, distorted anatomy, bad proportions, missing body part, missing limb, unclear eyes, bad hands, mutated hands, fused fingers, fewer digits, extra digits, extra arms, missing arm, missing leg, open mouth, cross-eye, strabismus, lazy eye, bad legs, bad thighs, bad feet, bad toes, bad fingers, malformed hands, malformed feet, malformed legs, malformed thighs, extra legs, missing legs, extra thighs, missing thighs, fused toes, fused fingers, extra toes, missing toes"],
+                            "color": "#223",
+                            "bgcolor": "#335"
+                        },
+                        {
+                            "id": 34,
+                            "type": "LoraLoader",
+                            "pos": [290.2243957519531, -157.09925842285156],
+                            "size": [270, 126],
+                            "flags": {},
+                            "order": 3,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "model", "name": "model", "type": "MODEL", "link": 54},
+                                {"label": "clip", "name": "clip", "type": "CLIP", "link": 55}
+                            ],
+                            "outputs": [
+                                {"label": "MODEL", "name": "MODEL", "type": "MODEL", "links": [58]},
+                                {"label": "CLIP", "name": "CLIP", "type": "CLIP", "links": [56, 57]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.50", "Node name for S&R": "LoraLoader"},
+                            "widgets_values": ["details_body.safetensors", 0.8, 1]
+                        },
+                        {
+                            "id": 6,
+                            "type": "CLIPTextEncode",
+                            "pos": [25.71455192565918, 128.92031860351562],
+                            "size": [422.8500061035156, 164.30999755859375],
+                            "flags": {"collapsed": False, "pinned": True},
+                            "order": 5,
+                            "mode": 0,
+                            "inputs": [
+                                {"label": "clip", "name": "clip", "type": "CLIP", "link": 56}
+                            ],
+                            "outputs": [
+                                {"label": "CONDITIONING", "name": "CONDITIONING", "type": "CONDITIONING", "slot_index": 0, "links": [4, 12]}
+                            ],
+                            "properties": {"cnr_id": "comfy-core", "ver": "0.3.44", "Node name for S&R": "CLIPTextEncode"},
+                            "widgets_values": [positive_prompt],
+                            "color": "#232",
+                            "bgcolor": "#353"
+                        }
+                    ],
+                    "links": [
+                        [2, 5, 0, 3, 3, "LATENT"],
+                        [4, 6, 0, 3, 1, "CONDITIONING"],
+                        [6, 7, 0, 3, 2, "CONDITIONING"],
+                        [7, 3, 0, 8, 0, "LATENT"],
+                        [12, 6, 0, 11, 1, "CONDITIONING"],
+                        [13, 7, 0, 11, 2, "CONDITIONING"],
+                        [15, 11, 0, 13, 0, "LATENT"],
+                        [21, 16, 2, 8, 1, "VAE"],
+                        [22, 16, 2, 13, 1, "VAE"],
+                        [24, 8, 0, 18, 0, "IMAGE"],
+                        [34, 16, 0, 26, 0, "MODEL"],
+                        [35, 16, 1, 26, 1, "CLIP"],
+                        [40, 27, 0, 3, 0, "MODEL"],
+                        [41, 27, 0, 11, 0, "MODEL"],
+                        [47, 3, 0, 11, 3, "LATENT"],
+                        [48, 13, 0, 30, 0, "IMAGE"],
+                        [54, 26, 0, 34, 0, "MODEL"],
+                        [55, 26, 1, 34, 1, "CLIP"],
+                        [56, 34, 1, 6, 0, "CLIP"],
+                        [57, 34, 1, 7, 0, "CLIP"],
+                        [58, 34, 0, 27, 0, "*"]
+                    ],
+                    "groups": [
+                        {"id": 1, "title": "Step3 - Prompt", "bounding": [-10, 30, 490, 540], "color": "#3f789e", "font_size": 24, "flags": {"pinned": True}},
+                        {"id": 2, "title": "Preview Intermediate Image", "bounding": [850, 40, 600, 530], "color": "#3f789e", "font_size": 24, "flags": {"pinned": True}},
+                        {"id": 3, "title": "Hires Fix", "bounding": [-10, 600, 490, 570], "color": "#3f789e", "font_size": 24, "flags": {"pinned": True}},
+                        {"id": 4, "title": "Save Final Image", "bounding": [510, 600, 740.83251953125, 456.9742736816406], "color": "#3f789e", "font_size": 24, "flags": {"pinned": True}},
+                        {"id": 5, "title": "Step1 - Load model", "bounding": [-370, 30, 335, 181.60000610351562], "color": "#3f789e", "font_size": 24, "flags": {"pinned": True}},
+                        {"id": 6, "title": "Step2 - Image size", "bounding": [-370, 230, 335, 189.60000610351562], "color": "#3f789e", "font_size": 24, "flags": {"pinned": True}},
+                        {"id": 8, "title": "Load loras", "bounding": [-13.052992820739746, -230.39866638183594, 610.0645141601562, 248.940673828125], "color": "#3f789e", "font_size": 24, "flags": {"pinned": True}}
+                    ],
+                    "config": {},
+                    "extra": {
+                        "ds": {
+                            "scale": 0.9229599817706456,
+                            "offset": [217.56599315153105, 152.7902570825105]
+                        },
+                        "frontendVersion": "1.24.4"
+                    },
+                    "version": 0.4
+                }
+            }
+        }
+    }
