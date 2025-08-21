@@ -2,15 +2,78 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 from typing import Optional
 import httpx
-import base64
 from auth.auth import validate_api_key
-from models.models import Subscription, ImageGenerationHistory
+from models.models import Subscription, ImageGenerationHistory, User
 from config.settings import API_TIMEOUT, COMFYUI_API_URL, COMFYUI_HISTORY_URL, COMFYUI_VIEW_URL
 from config.payload import payload_genimage_realistic
 from sqlalchemy.orm import Session
 from datetime import datetime
 from schemas.schemas import ImageGenRequest, ImageGenerationResponse
 import asyncio
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
+from google.auth.transport.requests import Request
+
+async def refresh_google_token(user, db: Session):
+    if user.google_token_expiry and user.google_token_expiry < datetime.utcnow():
+        credentials = Credentials(
+            token=user.google_access_token,
+            refresh_token=user.google_refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id="your-client-id.apps.googleusercontent.com",
+            client_secret="your-client-secret"
+        )
+        credentials.refresh(Request())
+        db.query(User).filter(User.id == user.id).update({
+            "google_access_token": credentials.token,
+            "google_token_expiry": credentials.expiry
+        })
+        db.commit()
+        return credentials
+    return Credentials(
+        token=user.google_access_token,
+        refresh_token=user.google_refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id="your-client-id.apps.googleusercontent.com",
+        client_secret="your-client-secret"
+    )
+
+async def save_image_to_drive(image_data: bytes, filename: str, positive_prompt: str, size: str, subscription_id: int, current_user, db: Session):
+    subscriptions = db.query(Subscription).filter(
+        Subscription.user_id == current_user.id,
+        Subscription.end_date >= datetime.utcnow()
+    ).all()
+    if not any(sub.plan.name in ["Semi-Annual", "Annual"] for sub in subscriptions):
+        raise HTTPException(status_code=403, detail="Yêu cầu gói Semi-Annual hoặc Annual để lưu ảnh vào Google Drive")
+
+    if not current_user.google_access_token:
+        raise HTTPException(status_code=403, detail="Vui lòng cấp quyền Google Drive trước. Truy cập /auth/google.")
+
+    credentials = await refresh_google_token(current_user, db)
+    drive_service = build('drive', 'v3', credentials=credentials)
+
+    file_metadata = {'name': filename}
+    media = MediaIoBaseUpload(io.BytesIO(image_data), mimetype='image/png', resumable=True)
+    file = drive_service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id'
+    ).execute()
+
+    # Lưu vào ImageGenerationHistory
+    image_history = ImageGenerationHistory(
+        user_id=current_user.id,
+        subscription_id=subscription_id,
+        positive_prompt=positive_prompt,
+        size=size,
+        drive_file_id=file.get('id')
+    )
+    db.add(image_history)
+    db.commit()
+
+    return file.get('id')
 
 async def generate_image_service(request: ImageGenRequest, user, db: Session) -> ImageGenerationResponse:
     # Kiểm tra định dạng size
@@ -105,31 +168,25 @@ async def generate_image_service(request: ImageGenRequest, user, db: Session) ->
             }
             image_response = await client.get(COMFYUI_VIEW_URL, params=view_params)
             image_response.raise_for_status()
-            image_data = base64.b64encode(image_response.content).decode("utf-8")
+            image_data = image_response.content
         except httpx.HTTPError as e:
             raise HTTPException(status_code=500, detail=f"Lỗi khi lấy ảnh từ ComfyUI /api/view: {str(e)}")
 
     if not image_data:
         raise HTTPException(status_code=500, detail="Không thể lấy dữ liệu ảnh từ ComfyUI")
 
-    # Lưu lịch sử sinh ảnh vào DB
-    image_history = ImageGenerationHistory(
-        user_id=user.id,
-        subscription_id=subscription_id,
-        positive_prompt=request.positive_prompt,
-        size=request.size,
-        image_base64=image_data,
-        timestamp=datetime.utcnow()
-    )
-    db.add(image_history)
-    db.commit()
-    db.refresh(image_history)
+    # Lưu ảnh vào Google Drive
+    drive_filename = f"generated_image_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.png"
+    file_id = await save_image_to_drive(image_data, drive_filename, request.positive_prompt, request.size, subscription_id, user, db)
 
     # Trả về response
     return ImageGenerationResponse(
-        id=image_history.id,
-        positive_prompt=image_history.positive_prompt,
-        size=image_history.size,
-        image_base64=image_history.image_base64,
-        timestamp=image_history.timestamp
+        id=db.query(ImageGenerationHistory).filter(
+            ImageGenerationHistory.user_id == user.id,
+            ImageGenerationHistory.drive_file_id == file_id
+        ).first().id,
+        positive_prompt=request.positive_prompt,
+        size=request.size,
+        drive_file_id=file_id,
+        timestamp=datetime.utcnow()
     )

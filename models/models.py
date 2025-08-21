@@ -11,11 +11,16 @@ class User(Base):
     phone_number = Column(String, nullable=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=False)
+    oauth_state = Column(String, nullable=True)
+    google_access_token = Column(String, nullable=True)
+    google_refresh_token = Column(String, nullable=True)
+    google_token_expiry = Column(DateTime, nullable=True)
 
     chat_history = relationship("ChatHistory", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
     device_verifications = relationship("DeviceVerification", back_populates="user")
     conversations = relationship("Conversation", back_populates="user")
+    image_generation_history = relationship("ImageGenerationHistory", back_populates="user")
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
@@ -29,6 +34,7 @@ class Subscription(Base):
     user = relationship("User", back_populates="subscriptions")
     plan = relationship("Plan", back_populates="subscriptions")
     chat_history = relationship("ChatHistory", back_populates="subscription")
+    image_generation_history = relationship("ImageGenerationHistory", back_populates="subscription")
 
 class Plan(Base):
     __tablename__ = "plans"
@@ -72,8 +78,8 @@ class Conversation(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     title = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)  # Thêm cột created_at
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # Thêm cột updated_at
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="conversations")
     chat_history = relationship("ChatHistory", back_populates="conversation")
@@ -96,9 +102,12 @@ class ChatHistory(Base):
 class ImageGenerationHistory(Base):
     __tablename__ = "image_generation_history"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=False)
     positive_prompt = Column(Text, nullable=False)
     size = Column(String, nullable=False)  # Format: "widthxheight"
-    image_base64 = Column(Text, nullable=False)  # Lưu ảnh dưới dạng base64
+    drive_file_id = Column(String, nullable=True)  # ID tệp trên Google Drive
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="image_generation_history")
+    subscription = relationship("Subscription", back_populates="image_generation_history")

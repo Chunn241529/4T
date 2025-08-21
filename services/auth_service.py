@@ -47,7 +47,7 @@ def register_service(user: UserCreate, db: Session):
     db.commit()
 
     send_activation_email(new_user.email, code)
-    return {"msg": "Người dùng đã được tạo, mã kích hoạt đã được gửi đến email. Vui lòng verify để kích hoạt tài khoản.", "username": new_user.username}
+    return {"msg": "Người dùng đã được tạo, mã kích hoạt đã được gửi đến email.", "username": new_user.username}
 
 def login_service(login: LoginRequest, db: Session):
     db_user = db.query(User).filter(User.username == login.username).first()
@@ -133,8 +133,8 @@ def purchase_service(purchase: PurchaseRequest, current_user, db: Session):
     discount = 0.0
     if purchase.voucher_code:
         voucher = db.query(Voucher).filter(Voucher.code == purchase.voucher_code).first()
-        if voucher and voucher.valid_until >= datetime.utcnow():
-            discount = voucher.discount_percent
+        if voucher and voucher.expiry_date >= datetime.utcnow():
+            discount = voucher.discount
         else:
             raise HTTPException(status_code=400, detail="Mã giảm giá không hợp lệ hoặc đã hết hạn")
 
@@ -152,7 +152,7 @@ def purchase_service(purchase: PurchaseRequest, current_user, db: Session):
 
 def add_voucher_service(code: str, discount_percent: float, valid_days: int, db: Session):
     valid_until = datetime.utcnow() + timedelta(days=valid_days)
-    voucher = Voucher(code=code, discount_percent=discount_percent, valid_until=valid_until)
+    voucher = Voucher(code=code, discount=discount_percent, expiry_date=valid_until, max_usage=100, used_count=0)
     db.add(voucher)
     db.commit()
     return {"msg": "Mã giảm giá đã được thêm"}

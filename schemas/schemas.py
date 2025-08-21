@@ -62,21 +62,21 @@ class ChatHistoryResponse(BaseModel):
 
 # Cập nhật ChatRequest để hỗ trợ conversation_id
 class ChatRequest(BaseModel):
-    model: str = "4T-N"
+    model: str = "4T-S"
     prompt: str = "Chào bạn"
     api_key: Optional[str] = None
     conversation_id: Optional[int] = None  # Optional, nếu không có thì tạo mới
 
 class ImageGenRequest(BaseModel):
     positive_prompt: str
-    size: str  # Format: "widthxheight", ví dụ: "960x1024"
+    size: str  = "968x1024" # Mặc định là 968x1024
     api_key: Optional[str] = None
 
 class ImageGenerationResponse(BaseModel):
     id: int
     positive_prompt: str
     size: str
-    image_base64: str
+    drive_file_id: Optional[str]
     timestamp: datetime
 
     class Config:

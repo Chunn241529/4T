@@ -26,6 +26,10 @@ if LANGUAGE == 'EN':
     MSG_CREATE_REQS = "Creating requirements.txt..."
     MSG_INSTALL_REQS = "Installing packages from requirements.txt..."
     MSG_REQS_FAIL = "Failed to install packages."
+    MSG_CHECK_MAIN_PY = "Checking for main.py..."
+    MSG_MAIN_PY_NOT_FOUND = "main.py not found in project directory."
+    MSG_CREATE_RUN_SH = "Creating run.sh to execute the program..."
+    MSG_RUN_SH_FAIL = "Failed to create or execute run.sh."
     MSG_COMPLETE = "Installation completed successfully!"
     MSG_SUMMARY = "Installation Summary"
     MSG_PRESS_ENTER = "Press Enter to continue..."
@@ -46,9 +50,13 @@ else:
     MSG_CREATE_REQS = "Tạo file requirements.txt..."
     MSG_INSTALL_REQS = "Cài đặt các gói từ requirements.txt..."
     MSG_REQS_FAIL = "Lỗi khi cài đặt các gói."
+    MSG_CHECK_MAIN_PY = "Đang kiểm tra main.py..."
+    MSG_MAIN_PY_NOT_FOUND = "Không tìm thấy main.py trong thư mục dự án."
+    MSG_CREATE_RUN_SH = "Tạo file run.sh để chạy chương trình..."
+    MSG_RUN_SH_FAIL = "Lỗi khi tạo hoặc chạy run.sh."
     MSG_COMPLETE = "Cài đặt hoàn tất!"
     MSG_SUMMARY = "Tóm tắt cài đặt"
-    MSG_PRESS_ENTER = "Nhấn Enter để thoát..."
+    MSG_PRESS_ENTER = "Nhấn Enter để tiếp tục..."
 
 # Màu sắc và biểu tượng
 RED = '\033[0;31m'
@@ -97,6 +105,14 @@ def show_progress(msg: str, duration: float) -> None:
 # Tóm tắt trạng thái
 SUMMARY: List[str] = []
 
+# Kiểm tra hệ điều hành
+def check_os() -> None:
+    show_progress(MSG_CHECK_OS, 10)
+    OS = platform.system()
+    ARCH = platform.machine()
+    log_info(MSG_OS_DETECTED.format(OS, ARCH))
+    SUMMARY.append(f"OS Check: {GREEN}{CHECKMARK}{NC}")
+
 # Kiểm tra thư mục dự án
 def check_project_directory() -> None:
     show_progress(MSG_CHECK_PROJECT_DIR, 5)
@@ -107,13 +123,21 @@ def check_project_directory() -> None:
     log_info(MSG_PROJECT_DIR_SUCCESS.format(PROJECT_DIR))
     SUMMARY.append(f"Project Directory: {GREEN}{CHECKMARK}{NC}")
 
-# Kiểm tra hệ điều hành
-def check_os() -> None:
-    show_progress(MSG_CHECK_OS, 10)
-    OS = platform.system()
-    ARCH = platform.machine()
-    log_info(MSG_OS_DETECTED.format(OS, ARCH))
-    SUMMARY.append(f"OS Check: {GREEN}{CHECKMARK}{NC}")
+# Kiểm tra phiên bản Python
+def check_python_version() -> None:
+    show_progress(MSG_CHECK_PYTHON_VERSION, 5)
+    try:
+        result = subprocess.run(['python3', '--version'], check=True, capture_output=True, text=True)
+        python_version = result.stdout.strip()
+        version_parts = python_version.split()[1].split('.')
+        major, minor = int(version_parts[0]), int(version_parts[1])
+        if major < 3 or (major == 3 and minor < 10):
+            log_error(f"Phiên bản Python {python_version} không được hỗ trợ. Yêu cầu Python >= 3.10.")
+        log_info(MSG_PYTHON_VERSION.format(python_version))
+        SUMMARY.append(f"Python Version: {GREEN}{CHECKMARK}{NC}")
+    except subprocess.CalledProcessError as e:
+        log_error(f"{MSG_CHECK_PYTHON_VERSION}: {e}")
+        SUMMARY.append(f"Python Version: {RED}{CROSS}{NC}")
 
 # Kiểm tra môi trường ảo
 def check_venv() -> None:
@@ -123,14 +147,14 @@ def check_venv() -> None:
     else:
         show_progress(MSG_CREATE_VENV, 15)
         try:
-            subprocess.run(['python3.12', '-m', 'venv', VENV_PATH], check=True)
+            subprocess.run(['python3', '-m', 'venv', VENV_PATH], check=True)
             log_info(MSG_CREATE_VENV)
             SUMMARY.append(f"Virtual Env: {GREEN}{CHECKMARK}{NC}")
         except subprocess.CalledProcessError as e:
             log_error(f"{MSG_VENV_FAIL}: {e}")
             SUMMARY.append(f"Virtual Env: {RED}{CROSS}{NC}")
 
-# Kích hoạt môi trường ảo và kiểm tra phiên bản Python
+# Kích hoạt môi trường ảo và kiểm tra phiên bản Python trong môi trường ảo
 def activate_venv() -> None:
     show_progress(MSG_ACTIVATE_VENV, 10)
     try:
@@ -143,7 +167,7 @@ def activate_venv() -> None:
         result = subprocess.run([venv_python, '--version'], check=True, capture_output=True, text=True)
         python_version = result.stdout.strip()
         log_info(MSG_PYTHON_VERSION.format(python_version))
-        SUMMARY.append(f"Python Version: {GREEN}{CHECKMARK}{NC}")
+        SUMMARY.append(f"Python Version (venv): {GREEN}{CHECKMARK}{NC}")
 
         log_info(MSG_ACTIVATE_VENV)
         SUMMARY.append(f"Activate Venv: {GREEN}{CHECKMARK}{NC}")
@@ -154,7 +178,7 @@ def activate_venv() -> None:
 # Tạo file requirements.txt
 def create_requirements() -> None:
     show_progress(MSG_CREATE_REQS, 10)
-    requirements_content = """openai
+    requirements_content = """\
 fastapi
 uvicorn
 python-dotenv
@@ -187,6 +211,10 @@ textual
 sqlalchemy
 tiktoken
 googletrans==4.0.0-rc1
+google-auth~=2.40.3
+google-auth-oauthlib~=1.0.0
+google-auth-httplib2~=0.1.0
+google-api-python-client~=2.85.0
 """
     try:
         with open('requirements.txt', 'w', encoding='utf-8') as f:
@@ -204,7 +232,9 @@ def install_packages() -> None:
         venv_python = os.path.join(VENV_PATH, 'bin', 'python') if platform.system() != "Windows" else os.path.join(VENV_PATH, 'Scripts', 'python.exe')
         if not os.path.exists(venv_python):
             raise FileNotFoundError(f"Python executable not found in virtual environment: {venv_python}")
-        subprocess.run([venv_python, '-m', 'pip', 'install', '-U', '-r', 'requirements.txt'], check=True)
+        # Cập nhật pip trước khi cài đặt
+        subprocess.run([venv_python, '-m', 'pip', 'install', '--upgrade', 'pip'], check=True)
+        subprocess.run([venv_python, '-m', 'pip', 'install', '-r', 'requirements.txt'], check=True)
         log_info(MSG_INSTALL_REQS)
         SUMMARY.append(f"Packages: {GREEN}{CHECKMARK}{NC}")
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
@@ -213,33 +243,54 @@ def install_packages() -> None:
 
 # Hiển thị tóm tắt và tạo file run.sh
 def show_summary() -> None:
-    for item in SUMMARY:
-        print(f"{BLUE}│{NC} {item}")
-    print(f"{GREEN}{CHECKMARK} {MSG_COMPLETE}{NC}")
+    show_progress(MSG_CHECK_MAIN_PY, 5)
+    if not os.path.exists('main.py'):
+        log_error(MSG_MAIN_PY_NOT_FOUND)
+        SUMMARY.append(f"Main.py: {RED}{CROSS}{NC}")
+        return
 
-    # Tạo shell script để chạy chương trình
+    show_progress(MSG_CREATE_RUN_SH, 5)
     run_script_content = """#!/bin/bash
 source .venv/bin/activate
-python main.py
+uvicorn main:app --host 0.0.0.0 --port 8000
 """
     try:
         with open('run.sh', 'w', encoding='utf-8') as f:
             f.write(run_script_content)
         os.chmod('run.sh', 0o755)  # Cấp quyền thực thi
-        log_info("Tạo file run.sh để chạy chương trình trong môi trường ảo.")
-        log_info("Đang chạy chương trình chính bằng ./run.sh...")
+        log_info(MSG_CREATE_RUN_SH)
+        SUMMARY.append(f"Run.sh: {GREEN}{CHECKMARK}{NC}")
+
+        # Hiển thị tóm tắt
+        print(f"\n{BLUE}{MSG_SUMMARY}{NC}")
+        for item in SUMMARY:
+            print(f"{BLUE}│{NC} {item}")
+        print(f"{GREEN}{CHECKMARK} {MSG_COMPLETE}{NC}")
 
         # Chạy file run.sh
+        log_info("Đang chạy chương trình chính bằng ./run.sh...")
         try:
             subprocess.run(['./run.sh'], check=True, shell=True)
             log_info("Chương trình chính chạy thành công!")
+            SUMMARY.append(f"Run Program: {GREEN}{CHECKMARK}{NC}")
         except subprocess.CalledProcessError as e:
             log_error(f"Lỗi khi chạy chương trình chính: {e}")
+            SUMMARY.append(f"Run Program: {RED}{CROSS}{NC}")
     except Exception as e:
-        log_error(f"Lỗi khi tạo hoặc chạy run.sh: {e}")
+        log_error(f"{MSG_RUN_SH_FAIL}: {e}")
+        SUMMARY.append(f"Run.sh: {RED}{CROSS}{NC}")
 
-    if os.path.exists(LOG_FILE):
-        os.remove(LOG_FILE)
+# Hàm chính
+def main() -> None:
+    check_os()
+    check_project_directory()
+    check_python_version()
+    check_venv()
+    activate_venv()
+    create_requirements()
+    install_packages()
+    show_summary()
+    input(MSG_PRESS_ENTER)
 
 if __name__ == "__main__":
     main()
