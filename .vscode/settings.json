@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "/home/trung/Documents/Github/4T/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "isort.check": true,
+  "isort.importStrategy": "fromEnvironment",
+  "isort.path": ["/home/trung/Documents/Github/4T/.venv/bin/isort"],
+  "isort.interpreter": ["/home/trung/Documents/Github/4T/.venv/bin/python"]
+}

@@ -17,7 +17,7 @@ def clear_cache():
         return
 
     # Đường dẫn đến clean_full.sh
-    script_path = os.path.join(os.getcwd(), "clean.sh")
+    script_path = os.path.join(os.getcwd(), "helper/clean.sh")
 
     if not os.path.exists(script_path):
         print(f"Không tìm thấy script {script_path}")
