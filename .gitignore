@@ -35,7 +35,7 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-client_secret_399293753103-9e2hhelbc2j6rc24hmuhfpl7gfeepbeb.apps.googleusercontent.com.json
+client_secret.json
 # Unit test / coverage reports
 htmlcov/
 .tox/

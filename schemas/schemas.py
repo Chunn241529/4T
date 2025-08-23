@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
     model: str = "4T-N"
     prompt: str = "Chào bạn"
     api_key: Optional[str] = None
+    conversation_id: Optional[int] = None
 
 class SubscriptionResponse(BaseModel):
     plan_name: str
@@ -40,13 +41,13 @@ class SubscriptionsResponse(BaseModel):
     subscriptions: List[SubscriptionResponse]
 
 class ConversationCreate(BaseModel):
-    title: Optional[str] = None  # Optional, nếu không có thì tự generate
+    title: Optional[str] = None
 
 class ConversationResponse(BaseModel):
     id: int
     title: Optional[str]
-    created_at: Optional[datetime] = None  # Cho phép None
-    updated_at: Optional[datetime] = None  # Cho phép None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -60,24 +61,17 @@ class ChatHistoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Cập nhật ChatRequest để hỗ trợ conversation_id
-class ChatRequest(BaseModel):
-    model: str = "4T-S"
-    prompt: str = "Chào bạn"
-    api_key: Optional[str] = None
-    conversation_id: Optional[int] = None  # Optional, nếu không có thì tạo mới
-
 class ImageGenRequest(BaseModel):
     positive_prompt: str
-    size: str  = "968x1024" # Mặc định là 968x1024
+    size: str = "968x1024"
     api_key: Optional[str] = None
 
 class ImageGenerationResponse(BaseModel):
     id: int
     positive_prompt: str
     size: str
-    drive_file_id: Optional[str]
+    file_path: Optional[str]
     timestamp: datetime
 
     class Config:
-        from_attributes = True  # Hỗ trợ ánh xạ từ model SQLAlchemy
+        from_attributes = True

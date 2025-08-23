@@ -11,21 +11,15 @@ from models.models import User
 import logging
 import os
 
+
+
 # Thiết lập logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["Auth", "Google Drive"])
+router = APIRouter(tags=["Auth"])
 
-# Đường dẫn đến file client_secrets.json
-CLIENT_SECRETS_FILE = os.path.join(os.path.dirname(__file__), "..", "client_secret_399293753103-9e2hhelbc2j6rc24hmuhfpl7gfeepbeb.apps.googleusercontent.com.json")
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
-REDIRECT_URI = "http://localhost:8000/oauth/callback"
 
-# Kiểm tra file client_secrets.json
-if not os.path.exists(CLIENT_SECRETS_FILE):
-    logger.error("client_secrets.json not found at %s", CLIENT_SECRETS_FILE)
-    raise ValueError("client_secrets.json not found. Please place it in the project root directory.")
 
 @router.on_event("startup")
 async def startup_event():
@@ -60,116 +54,4 @@ def add_voucher(code: str, discount_percent: float, valid_days: int, db: Session
 def check_subscription(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return check_subscription_service(current_user, db)
 
-@router.get("/auth/google")
-async def auth_google(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent"
-    )
-    logger.info("Generated authorization URL for /auth/google: %s, state: %s", authorization_url, state)
-    db.query(User).filter(User.id == current_user.id).update({"oauth_state": state})
-    db.commit()
-    return {
-        "google_auth_url": authorization_url,
-        "state": state
-    }
 
-# @router.get("/oauth/callback")
-# async def oauth_callback(state: str, code: str, db: Session = Depends(get_db)):
-#     user = db.query(User).filter(User.oauth_state == state).first()
-#     if not user:
-#         logger.error("Invalid state: %s", state)
-#         raise HTTPException(status_code=401, detail="Invalid state")
-
-#     flow = Flow.from_client_secrets_file(
-#         CLIENT_SECRETS_FILE,
-#         scopes=SCOPES,
-#         state=state,
-#         redirect_uri=REDIRECT_URI
-#     )
-#     try:
-#         flow.fetch_token(code=code)
-#     except Exception as e:
-#         logger.error("Failed to fetch token: %s", str(e))
-#         raise HTTPException(status_code=400, detail=f"Failed to fetch token: {str(e)}")
-
-#     credentials = flow.credentials
-#     logger.info("Fetched credentials: token=%s, refresh_token=%s, expiry=%s",
-#                 credentials.token, credentials.refresh_token, credentials.expiry)
-
-#     db.query(User).filter(User.id == user.id).update({
-#         "google_access_token": credentials.token,
-#         "google_refresh_token": credentials.refresh_token,
-#         "google_token_expiry": credentials.expiry,
-#         "oauth_state": None
-#     })
-#     db.commit()
-
-#     return {"msg": "Google Drive authenticated successfully"}
-
-@router.get("/google-auth")
-def google_auth(username: str, db: Session = Depends(get_db)) -> Dict[str, str]:
-    db_user = db.query(User).filter(User.username == username).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent"
-    )
-    logger.info("Generated authorization URL: %s, state: %s", authorization_url, state)
-
-    db_user.oauth_state = state
-    db.commit()
-
-    return {
-        "google_auth_url": authorization_url,
-        "state": state
-    }
-
-@router.get("/oauth/callback")
-def oauth_callback(code: str, state: str, db: Session = Depends(get_db)) -> Dict[str, str]:
-    db_user = db.query(User).filter(User.oauth_state == state).first()
-    if not db_user:
-        logger.error("Invalid state: %s", state)
-        raise HTTPException(status_code=401, detail="Invalid state")
-
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
-    )
-    try:
-        flow.fetch_token(code=code)
-    except Exception as e:
-        logger.error("Failed to fetch token: %s", str(e))
-        raise HTTPException(status_code=400, detail=f"Failed to fetch token: {str(e)}")
-
-    credentials = flow.credentials
-    logger.info("Received credentials: %s", credentials.to_json())
-
-    # Lưu token vào cơ sở dữ liệu
-    db_user.access_token = credentials.token
-    db_user.refresh_token = credentials.refresh_token
-    db_user.token_expiry = credentials.expiry
-    db_user.oauth_state = None  # Xóa state sau khi sử dụng
-    db.commit()
-
-    return {
-        "msg": "OAuth flow completed",
-        "access_token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "expires_in": str(credentials.expiry)
-    }

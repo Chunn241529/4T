@@ -61,7 +61,7 @@ show_progress() {
         sleep 0.1
         i=$((i + 1))
     done
-    printf "\r\033[K" >&3  # Xóa dòng spinner
+    printf "\r\033[K" >&3
 }
 
 # Bắt đầu dọn dẹp
@@ -70,7 +70,7 @@ log_info "$MSG_CLEANING"
 # Xóa cache Hugging Face
 show_progress "$MSG_CLEAN_HF" 10
 if [ -d ~/.cache/huggingface ]; then
-    rm -rf ~/.cache/huggingface/* || log_error "Không thể xóa cache Hugging Face."
+    rm -rf ~/.cache/huggingface/* 2>/dev/null || log_warn "Không thể xóa toàn bộ cache Hugging Face."
     log_info "$MSG_CLEAN_HF"
 else
     log_warn "Không tìm thấy thư mục cache Hugging Face."
@@ -79,7 +79,7 @@ fi
 # Xóa cache PyTorch
 show_progress "$MSG_CLEAN_TORCH" 10
 if [ -d ~/.cache/torch ]; then
-    rm -rf ~/.cache/torch/* || log_error "Không thể xóa cache PyTorch."
+    rm -rf ~/.cache/torch/* 2>/dev/null || log_warn "Không thể xóa toàn bộ cache PyTorch."
     log_info "$MSG_CLEAN_TORCH"
 else
     log_warn "Không tìm thấy thư mục cache PyTorch."
@@ -98,7 +98,7 @@ log_info "$MSG_CLEAN_PYC"
 # Xóa cache pip
 show_progress "$MSG_CLEAN_PIP" 10
 if [ -d ~/.cache/pip ]; then
-    rm -rf ~/.cache/pip/* || log_error "Không thể xóa cache pip."
+    rm -rf ~/.cache/pip/* 2>/dev/null || log_warn "Không thể xóa toàn bộ cache pip."
     log_info "$MSG_CLEAN_PIP"
 else
     log_warn "Không tìm thấy thư mục cache pip."
@@ -106,19 +106,24 @@ fi
 
 # Xóa cache hệ thống người dùng
 show_progress "Xóa thư mục ~/.cache..." 10
-rm -rf ~/.cache/* && log_info "Đã xóa ~/.cache." || log_warn "Không thể xóa ~/.cache."
+chown -R "$(id -u):$(id -g)" ~/.cache 2>/dev/null
+chmod -R u+rw ~/.cache 2>/dev/null
+rm -rf ~/.cache/* 2>/dev/null && log_info "Đã xóa ~/.cache." || log_warn "Không thể xóa ~/.cache."
 
+# Xóa thùng rác người dùng
 show_progress "Xóa thùng rác người dùng..." 10
-rm -rf ~/.local/share/Trash/* && log_info "Đã xóa thùng rác ~/.local/share/Trash." || log_warn "Không thể xóa thùng rác."
+chown -R "$(id -u):$(id -g)" ~/.local/share/Trash 2>/dev/null
+chmod -R u+rw ~/.local/share/Trash 2>/dev/null
+rm -rf ~/.local/share/Trash/* 2>/dev/null && log_info "Đã xóa thùng rác ~/.local/share/Trash." || log_warn "Không thể xóa thùng rác."
 
 # Xóa các thư mục cache đặc trưng
-[ -d ~/.nv ] && rm -rf ~/.nv && log_info "Đã xóa cache NVIDIA (~/.nv)." || log_warn "Không tìm thấy ~/.nv."
-[ -d ~/.thumbnails ] && rm -rf ~/.thumbnails && log_info "Đã xóa thumbnails (~/.thumbnails)." || log_warn "Không tìm thấy ~/.thumbnails."
-[ -d ~/.config/Code ] && rm -rf ~/.config/Code/Cache ~/.config/Code/CachedData ~/.config/Code/GPUCache && log_info "Đã xóa cache VSCode." || log_warn "Không tìm thấy cache VSCode."
+[ -d ~/.nv ] && rm -rf ~/.nv 2>/dev/null && log_info "Đã xóa cache NVIDIA (~/.nv)." || log_warn "Không tìm thấy ~/.nv."
+[ -d ~/.thumbnails ] && rm -rf ~/.thumbnails 2>/dev/null && log_info "Đã xóa thumbnails (~/.thumbnails)." || log_warn "Không tìm thấy ~/.thumbnails."
+[ -d ~/.config/Code ] && rm -rf ~/.config/Code/Cache ~/.config/Code/CachedData ~/.config/Code/GPUCache 2>/dev/null && log_info "Đã xóa cache VSCode." || log_warn "Không tìm thấy cache VSCode."
 
 # Xóa cache thumbnails
 if [ -d ~/.cache/thumbnails ]; then
-    rm -rf ~/.cache/thumbnails/* && log_info "Đã xóa cache thumbnails." || log_warn "Không thể xóa cache thumbnails."
+    rm -rf ~/.cache/thumbnails/* 2>/dev/null && log_info "Đã xóa cache thumbnails." || log_warn "Không thể xóa cache thumbnails."
 fi
 
 # Hoàn tất

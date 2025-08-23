@@ -2,7 +2,8 @@ import os
 import secrets
 
 # Security settings
-SECRET_KEY = secrets.token_urlsafe(50)
+# SECRET_KEY = secrets.token_urlsafe(50)
+SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(50))
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 

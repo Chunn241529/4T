@@ -11,10 +11,6 @@ class User(Base):
     phone_number = Column(String, nullable=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=False)
-    oauth_state = Column(String, nullable=True)
-    google_access_token = Column(String, nullable=True)
-    google_refresh_token = Column(String, nullable=True)
-    google_token_expiry = Column(DateTime, nullable=True)
 
     chat_history = relationship("ChatHistory", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
@@ -106,7 +102,7 @@ class ImageGenerationHistory(Base):
     subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=False)
     positive_prompt = Column(Text, nullable=False)
     size = Column(String, nullable=False)  # Format: "widthxheight"
-    drive_file_id = Column(String, nullable=True)  # ID tệp trên Google Drive
+    file_path = Column(String, nullable=True)  # Đường dẫn tệp trên server
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="image_generation_history")
