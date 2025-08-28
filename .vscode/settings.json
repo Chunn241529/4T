@@ -4,5 +4,8 @@
   "isort.check": true,
   "isort.importStrategy": "fromEnvironment",
   "isort.path": ["/home/trung/Documents/Github/4T/.venv/bin/isort"],
-  "isort.interpreter": ["/home/trung/Documents/Github/4T/.venv/bin/python"]
+  "isort.interpreter": [
+    "/home/trung/Documents/Github/4T/.venv/bin/python"
+  ],
+  "python.pythonPath": ".venv/bin/python"
 }

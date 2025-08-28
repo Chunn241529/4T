@@ -1,83 +1,81 @@
 {
-  "client_id": "93b65ced3f18410ea327cfd3e81aac62",
+  "client_id": "a7247769fcae44d4ad93a2459234c388",
   "prompt": {
-    "1": {
-      "inputs": { "samples": ["10", 0], "vae": ["4", 2] },
-      "class_type": "VAEDecode",
-      "_meta": { "title": "VAE Decode" }
-    },
-    "3": {
-      "inputs": { "width": 960, "height": 1024, "batch_size": 1 },
+    "5": {
+      "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
       "class_type": "EmptyLatentImage",
       "_meta": { "title": "Empty Latent Image" }
     },
-    "4": {
-      "inputs": { "ckpt_name": "4T_2D.safetensors" },
-      "class_type": "CheckpointLoaderSimple",
-      "_meta": { "title": "Load Checkpoint" }
-    },
-    "10": {
+    "6": {
       "inputs": {
-        "seed": 396586378186002,
-        "steps": 20,
+        "text": "hyperrealistic, highest quality, masterpiece, eyeliner, looking at the viewer, late evening, sexy face, rsgrl, russian girl, pretty russian girl, tight school uniform, micro skirt pulled up, no underwear, small natural breasts, protruding nipples, thin, hip bones, rib cage, very slim, freckles, petite, gorgeous, stunning, perfect anatomy, bedroom, party light, toned, (young woman: 2), (selfie:1. 4), bottom, young, nipples,\nBREAK,\nLola girl, (innocent look), ponytail, (red tie:0.5), very horny girl, dramatic eye makeup, incredibly beautiful, narrow nose, taut, highly detailed face, highest quality, highly detailed skin, goosebumps, freckles, huge amount of freckles and moles all over her body, (small breasts:1. 3), perfect sexy round small breasts, (erect nipples:1. 5), (mussed colored hair:1. 3), (light black bicolored hair), (black-blond mussed hair:1. 5), long black-blond mussed hair, (bangs), (long straight hair), blue eyes, (perfect eyes), detailed eyes, detailed pupils, detailed pupils, detailed pupils, shy smile, pussy focus, showing pierced pussy to viewer,  (((beauty)))), sharp focus, 8k resolution, Brutal bloody violent rough forced vaginal-anal sexual intercourse, pov",
+        "clip": ["16", 1]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": { "title": "CLIP Text Encode (Prompt)" }
+    },
+    "7": {
+      "inputs": {
+        "text": "lowres, worst quality, low quality, bad anatomy, worst aesthetic, jpeg artifacts, scan artifacts, compression artifacts, old, early, loli, child, bokeh, distorted anatomy, bad proportions, missing body part, missing limb, unclear eyes, bad hands, mutated hands, fused fingers, fewer digits, extra digits, extra arms, missing arm, missing leg, ai-generated, open mouth\n",
+        "clip": ["16", 1]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": { "title": "CLIP Text Encode (Prompt)" }
+    },
+    "11": {
+      "inputs": {
+        "seed": 186423909940049,
+        "steps": 40,
         "cfg": 5,
-        "sampler_name": "euler_ancestral",
-        "scheduler": "normal",
+        "sampler_name": "dpmpp_3m_sde",
+        "scheduler": "karras",
         "denoise": 1,
-        "model": ["18", 0],
-        "positive": ["15", 0],
-        "negative": ["16", 0],
-        "latent_image": ["3", 0]
+        "model": ["39", 0],
+        "positive": ["35", 0],
+        "negative": ["36", 0],
+        "latent_image": ["5", 0]
       },
       "class_type": "KSampler",
       "_meta": { "title": "KSampler" }
     },
-    "11": {
-      "inputs": {
-        "text": "lowres, worst quality, low quality, bad anatomy, worst aesthetic, jpeg artifacts, scan artifacts, compression artifacts, old, early, bokeh, distorted anatomy, bad proportions, missing body part, missing limb, unclear eyes, bad hands, mutated hands, malformed hands, fused fingers, bad fingers, extra digits, fewer digits, missing fingers, extra arms, missing arm, malformed legs, malformed thighs, malformed feet, bad legs, bad thighs, bad feet, bad toes, fused toes, extra toes, missing toes, cross-eye, strabismus, lazy eye, open mouth",
-        "clip": ["18", 1]
-      },
-      "class_type": "CLIPTextEncode",
-      "_meta": { "title": "CLIP Text Encode (Prompt)" }
-    },
     "13": {
-      "inputs": {
-        "text": "a naked cute girl, full body, spread legs, show pussy, pussy wet",
-        "clip": ["18", 1]
-      },
-      "class_type": "CLIPTextEncode",
-      "_meta": { "title": "CLIP Text Encode (Prompt)" }
-    },
-    "15": {
-      "inputs": { "strength": 1, "conditioning": ["13", 0] },
-      "class_type": "ConditioningSetAreaStrength",
-      "_meta": { "title": "ConditioningSetAreaStrength" }
+      "inputs": { "samples": ["11", 0], "vae": ["16", 2] },
+      "class_type": "VAEDecode",
+      "_meta": { "title": "VAE Decode" }
     },
     "16": {
-      "inputs": { "strength": 1, "conditioning": ["11", 0] },
-      "class_type": "ConditioningSetAreaStrength",
-      "_meta": { "title": "ConditioningSetAreaStrength" }
+      "inputs": { "ckpt_name": "4T_Realistic.safetensors" },
+      "class_type": "CheckpointLoaderSimple",
+      "_meta": { "title": "Load Checkpoint" }
     },
-    "17": {
+    "30": {
       "inputs": {
         "filename_prefix": "ComfyUI",
         "with_workflow": false,
         "metadata_extra": "{\n  \"Title\": \"Artwork by Ryn Wang\",\n  \"Description\": \"\",\n  \"Author\": \"Ryn Wang\",\n  \"Keywords\": [\"art\", \"digital\", \"creative\"],\n  \"Copyrights\": \"© 2025 Ryn Wang\"\n}",
-        "image": ["1", 0]
+        "image": ["13", 0]
       },
       "class_type": "Save image with extra metadata [Crystools]",
       "_meta": { "title": "🪛 Save image with extra metadata" }
     },
-    "18": {
+    "35": {
+      "inputs": { "strength": 1, "conditioning": ["6", 0] },
+      "class_type": "ConditioningSetAreaStrength",
+      "_meta": { "title": "ConditioningSetAreaStrength" }
+    },
+    "36": {
+      "inputs": { "strength": 1, "conditioning": ["7", 0] },
+      "class_type": "ConditioningSetAreaStrength",
+      "_meta": { "title": "ConditioningSetAreaStrength" }
+    },
+    "39": {
       "inputs": {
-        "lora_name": "details_body.safetensors",
-        "strength_model": 0.8,
-        "strength_clip": 1,
-        "model": ["4", 0],
-        "clip": ["4", 1]
+        "lora_name": "face.safetensors",
+        "strength_model": 1,
+        "model": ["16", 0]
       },
-      "class_type": "LoraLoader",
-      "_meta": { "title": "Load LoRA" }
+      "class_type": "LoraLoaderModelOnly",
+      "_meta": { "title": "LoraLoaderModelOnly" }
     }
   }
 }

@@ -2,12 +2,14 @@ from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
 import httpx
 import json
+import re
 from datetime import datetime
 from database import get_db
 from schemas.schemas import ChatRequest, ChatHistoryResponse, ConversationResponse, ConversationCreate
 from auth.auth import validate_api_key
 from models.models import Subscription, ChatHistory, Conversation
 from config.settings import API_TIMEOUT, DEFAULT_SYSTEM, OLLAMA_API_URL, OLLAMA_EMB_URL
+from services.search_service import search_service
 from sqlalchemy.orm import Session
 from typing import List
 import numpy as np
@@ -118,10 +120,64 @@ async def stream_chat_service(request: ChatRequest, user, db: Session) -> Stream
         selected_history = history_query
 
     current_time = datetime.now().strftime("%H:%M:%S")
+
+    search_context = ""
+    # Tạo search prompt đơn giản hóa
+    search_prompt = f"""
+    Tạo MỘT câu truy vấn tìm kiếm DUY NHẤT từ yêu cầu sau:
+    "{request.prompt}"
+
+    Quy tắc:
+    - Chỉ trả về 1 câu truy vấn ngắn gọn nhất có thể
+    - Sử dụng những từ khóa quan trọng nhất
+    - Dùng tiếng Anh
+    - KHÔNG giải thích hay liệt kê nhiều phương án
+    - KHÔNG đánh số thứ tự hay thêm định dạng
+
+    CHÚ Ý: Chỉ trả về đúng 1 truy vấn ngắn gọn, không thêm bất kỳ nội dung nào khác.
+    """
+
+    try:
+        search_query_messages = [{"role": "user", "content": search_prompt}]
+        search_query_payload = {
+            "model": "4T-L",
+            "messages": search_query_messages,
+            "stream": False
+        }
+
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            print(f"[DEBUG] Generating search query for prompt: {request.prompt}")
+            response = await client.post(OLLAMA_API_URL, json=search_query_payload)
+            if response.status_code == 200:
+                search_query = response.json().get("message", {}).get("content", "").strip()
+                print(f"[DEBUG] Generated search query: {search_query}")
+                search_results = search_service(search_query, max_results=3)
+
+                if search_results:
+                    search_context = "Dưới đây là thông tin liên quan:\n\n"
+                    for idx, result in enumerate(search_results, 1):
+                        title = result.get('title', 'Không có tiêu đề')
+                        url = result.get('link', result.get('href', '#'))
+                        content = result.get('content', '').strip()
+                        if content:
+                            search_context += f"{idx}. {title}\nNguồn: {url}\n{content}...\n\n"
+    except Exception as e:
+        print(f"Lỗi khi tìm kiếm: {str(e)}")
+
+    # Tạo system prompt với context
     system_prompt = f"""
-      Bạn đang hỗ trợ cho user tên:`{user.username}`.
-      Ngày giờ hiện tại là` {current_time}`.
+      Bạn là một AI assistant tích hợp với khả năng tìm kiếm thông tin chủ động.
+
+      Bạn đang hỗ trợ cho user tên: `{user.username}`.
+      Thời điểm hiện tại: `{current_time}`.
+
       {DEFAULT_SYSTEM}
+
+      Dựa trên yêu cầu của user, tôi đã chủ động tìm kiếm và thu thập được thông tin sau:
+      {search_context if search_context else 'Tôi đã tìm kiếm nhưng không tìm thấy thông tin phù hợp với yêu cầu của bạn.'}
+
+      Hãy sử dụng thông tin tôi vừa tìm được để trả lời câu hỏi của user một cách chính xác và đáng tin cậy.
+      Nếu thông tin không đủ, hãy nói rõ những gì chưa tìm thấy và đề xuất hướng tìm kiếm khác.
     """
     messages = [{"role": "system", "content": system_prompt}]
     messages += [{"role": hist.role, "content": hist.content} for hist in selected_history]
@@ -146,7 +202,7 @@ async def stream_chat_service(request: ChatRequest, user, db: Session) -> Stream
         "stream": True,
         "options": {
             "temperature": 0.7,
-            "max_tokens": -1,
+            "num_predict": -1,
             "think": False
         }
     }
@@ -154,12 +210,37 @@ async def stream_chat_service(request: ChatRequest, user, db: Session) -> Stream
     full_response = ""
     async def stream_generator():
         nonlocal full_response
+        from config.prompts import NEED_MORE_INFO_PATTERNS
+
         async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             try:
                 test_response = await client.post(OLLAMA_API_URL, json={**ollama_payload, "stream": False})
                 if test_response.status_code != 200:
                     yield f"data: {{\"error\": \"API Ollama không khả dụng: Status {test_response.status_code}\"}}".encode()
                     return
+
+                # Kiểm tra xem LLM có cần thêm thông tin không
+                test_content = test_response.json().get("message", {}).get("content", "")
+                needs_more_info = any(re.search(pattern, test_content.lower()) for pattern in NEED_MORE_INFO_PATTERNS)
+
+                if needs_more_info:
+                    # Tìm kiếm thêm thông tin
+                    try:
+                        search_results = search_service(request.prompt, max_results=3)
+                        if search_results:
+                            additional_context = "Tôi đã tìm thêm thông tin:\n\n"
+                            for idx, result in enumerate(search_results, 1):
+                                additional_context += f"{idx}. {result['title']}\n{result['content'][:500]}...\n\n"
+
+                            # Thêm thông tin mới vào messages
+                            messages.append({"role": "system", "content": additional_context})
+                            messages.append({"role": "user", "content": "Bây giờ hãy trả lời câu hỏi của tôi với thông tin bổ sung trên"})
+
+                            # Cập nhật payload với messages mới
+                            ollama_payload["messages"] = messages
+                    except Exception as e:
+                        print(f"Lỗi khi tìm kiếm thông tin bổ sung: {str(e)}")
+
             except httpx.HTTPError as e:
                 yield f"data: {{\"error\": \"Kiểm tra API Ollama thất bại: {str(e)}\"}}".encode()
                 return
@@ -236,6 +317,55 @@ async def delete_history_service(history_id: int, user, db: Session):
     db.delete(history)
     db.commit()
     return {"msg": "Tin nhắn đã được xóa"}
+
+async def stream_chat_service_no_auth(request: ChatRequest,  db: Session, temperature: int = 1, num_predict: int = -1,) -> StreamingResponse:
+    try:
+        current_time = datetime.now().strftime("%H:%M:%S")
+        system_prompt = f"""
+          Thời gian hiện tại là {current_time}.
+          {DEFAULT_SYSTEM}
+        """
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.append({"role": "user", "content": request.prompt})
+
+        ollama_payload = {
+            "model": request.model,
+            "messages": messages,
+            "stream": True,
+            "options": {
+                "temperature": temperature,
+                "num_predict": num_predict,
+                "think": False
+            }
+        }
+
+        async def stream_generator():
+            async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+                try:
+                    test_response = await client.post(OLLAMA_API_URL, json={**ollama_payload, "stream": False})
+                    if test_response.status_code != 200:
+                        yield f"data: {{\"error\": \"API Ollama không khả dụng: Status {test_response.status_code}\"}}".encode()
+                        return
+                except httpx.HTTPError as e:
+                    yield f"data: {{\"error\": \"Kiểm tra API Ollama thất bại: {str(e)}\"}}".encode()
+                    return
+
+                try:
+                    async with client.stream("POST", OLLAMA_API_URL, json=ollama_payload) as response:
+                        if response.status_code != 200:
+                            yield f"data: {{\"error\": \"Lỗi API Ollama: Status {response.status_code}\"}}".encode()
+                            return
+                        async for chunk in response.aiter_bytes():
+                            try:
+                                yield chunk
+                            except:
+                                yield chunk
+                except httpx.HTTPError as e:
+                    yield f"data: {{\"error\": \"Lỗi streaming API Ollama: {str(e)}\"}}".encode()
+
+        return StreamingResponse(stream_generator(), media_type="text/event-stream")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi server: {str(e)}")
 
 async def edit_history_service(history_id: int, content: str, user, db: Session):
     history = db.query(ChatHistory).filter(

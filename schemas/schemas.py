@@ -11,20 +11,18 @@ class UserCreate(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
-    device_id: Optional[str] = None
 
 class VerifyCodeRequest(BaseModel):
     username: str
     code: str
-    device_id: Optional[str] = None
 
 class PurchaseRequest(BaseModel):
     plan_id: int
     voucher_code: Optional[str] = None
 
 class ChatRequest(BaseModel):
-    model: str = "4T-N"
-    prompt: str = "Chào bạn"
+    model: str = "4T-S"
+    prompt: str
     api_key: Optional[str] = None
     conversation_id: Optional[int] = None
 
@@ -62,16 +60,34 @@ class ChatHistoryResponse(BaseModel):
         from_attributes = True
 
 class ImageGenRequest(BaseModel):
-    positive_prompt: str
-    size: str = "968x1024"
+    prompt: str
     api_key: Optional[str] = None
 
 class ImageGenerationResponse(BaseModel):
     id: int
     positive_prompt: str
     size: str
-    file_path: Optional[str]
+    base64: Optional[str]
     timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+class PlanCreate(BaseModel):
+    name: str
+    duration_months: int
+    price: float
+
+class PlanUpdate(BaseModel):
+    name: Optional[str] = None
+    duration_months: Optional[int] = None
+    price: Optional[float] = None
+
+class PlanResponse(BaseModel):
+    id: int
+    name: str
+    duration_months: int
+    price: float
 
     class Config:
         from_attributes = True

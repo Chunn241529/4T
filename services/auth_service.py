@@ -1,21 +1,75 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import uuid
+import hashlib
+import json
 from database import get_db
 from models.models import User, Plan, Voucher, Subscription, ActivationCode, DeviceVerification
-from schemas.schemas import UserCreate, LoginRequest, VerifyCodeRequest, PurchaseRequest, SubscriptionsResponse
+from schemas.schemas import (
+    UserCreate, LoginRequest, VerifyCodeRequest, PurchaseRequest,
+    SubscriptionsResponse, PlanCreate, PlanUpdate, PlanResponse
+)
 from auth.auth import get_password_hash, verify_password, create_access_token, generate_activation_code, send_activation_email
 
-def seed_plans(db: Session):
-    if db.query(Plan).count() == 0:
-        plans = [
-            Plan(name="Monthly", duration_months=1, price=10.0),
-            Plan(name="Semi-Annual", duration_months=6, price=50.0),
-            Plan(name="Annual", duration_months=12, price=90.0),
-        ]
-        db.add_all(plans)
-        db.commit()
+# Plans management services
+def create_plan(plan_data: PlanCreate, db: Session):
+    existing_plan = db.query(Plan).filter(Plan.name == plan_data.name).first()
+    if existing_plan:
+        raise HTTPException(status_code=400, detail="Gói này đã tồn tại")
+
+    new_plan = Plan(**plan_data.dict())
+    db.add(new_plan)
+    db.commit()
+    db.refresh(new_plan)
+    return new_plan
+
+def get_all_plans(db: Session):
+    return db.query(Plan).all()
+
+def get_plan_by_id(plan_id: int, db: Session):
+    plan = db.query(Plan).filter(Plan.id == plan_id).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Không tìm thấy gói")
+    return plan
+
+def update_plan(plan_id: int, plan_data: PlanUpdate, db: Session):
+    plan = get_plan_by_id(plan_id, db)
+
+    update_data = plan_data.dict(exclude_unset=True)
+    if update_data.get('name'):
+        existing_plan = db.query(Plan).filter(
+            Plan.name == update_data['name'],
+            Plan.id != plan_id
+        ).first()
+        if existing_plan:
+            raise HTTPException(status_code=400, detail="Tên gói này đã tồn tại")
+
+    for key, value in update_data.items():
+        setattr(plan, key, value)
+
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+def delete_plan(plan_id: int, db: Session):
+    plan = get_plan_by_id(plan_id, db)
+
+    # Kiểm tra xem có subscription nào đang sử dụng plan này không
+    existing_subs = db.query(Subscription).filter(
+        Subscription.plan_id == plan_id,
+        Subscription.end_date >= datetime.utcnow()
+    ).first()
+
+    if existing_subs:
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể xóa gói này vì đang có người dùng sử dụng"
+        )
+
+    db.delete(plan)
+    db.commit()
+    return {"message": "Đã xóa gói thành công"}
 
 def register_service(user: UserCreate, db: Session):
     db_user = db.query(User).filter(User.username == user.username).first()
@@ -49,7 +103,13 @@ def register_service(user: UserCreate, db: Session):
     send_activation_email(new_user.email, code)
     return {"msg": "Người dùng đã được tạo, mã kích hoạt đã được gửi đến email.", "username": new_user.username}
 
-def login_service(login: LoginRequest, db: Session):
+def generate_device_id(request: Request) -> str:
+    # Lấy thông tin từ user agent
+    user_agent = request.headers.get("user-agent", "")
+    # Tạo một hash từ user agent (không dùng IP và timestamp vì chúng có thể thay đổi)
+    return hashlib.sha256(user_agent.encode()).hexdigest()
+
+def login_service(login: LoginRequest, request: Request, db: Session):
     db_user = db.query(User).filter(User.username == login.username).first()
     if not db_user:
         raise HTTPException(status_code=401, detail="Tên người dùng không tồn tại")
@@ -58,16 +118,20 @@ def login_service(login: LoginRequest, db: Session):
     if not verify_password(login.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Mật khẩu không đúng")
 
-    if login.device_id:
-        device_ver = db.query(DeviceVerification).filter(
-            DeviceVerification.user_id == db_user.id,
-            DeviceVerification.device_id == login.device_id,
-            DeviceVerification.expires_at >= datetime.utcnow()
-        ).first()
-        if device_ver:
-            access_token_expires = timedelta(minutes=30)
-            access_token = create_access_token(data={"sub": db_user.username}, expires_delta=access_token_expires)
-            return {"access_token": access_token, "token_type": "bearer"}
+    # Tự động tạo device_id từ thông tin thiết bị
+    device_id = generate_device_id(request)
+
+    # Kiểm tra xem thiết bị đã được xác thực chưa
+    device_ver = db.query(DeviceVerification).filter(
+        DeviceVerification.user_id == db_user.id,
+        DeviceVerification.device_id == device_id,
+        DeviceVerification.expires_at >= datetime.utcnow()
+    ).first()
+
+    if device_ver:
+        access_token_expires = timedelta(minutes=30)
+        access_token = create_access_token(data={"sub": db_user.username}, expires_delta=access_token_expires)
+        return {"access_token": access_token, "token_type": "bearer", "device_id": device_id}
 
     code = generate_activation_code()
     expires_at = datetime.utcnow() + timedelta(minutes=5)
@@ -82,10 +146,13 @@ def login_service(login: LoginRequest, db: Session):
     send_activation_email(db_user.email, code)
     return {"msg": "Mã kích hoạt đã được gửi đến email", "username": db_user.username}
 
-def verify_code_service(verify: VerifyCodeRequest, db: Session):
+def verify_code_service(verify: VerifyCodeRequest, request: Request, db: Session):
     db_user = db.query(User).filter(User.username == verify.username).first()
     if not db_user:
         raise HTTPException(status_code=401, detail="Không tìm thấy người dùng")
+
+    # Tự động tạo device_id từ thông tin thiết bị
+    device_id = generate_device_id(request)
 
     activation_code = db.query(ActivationCode).filter(
         ActivationCode.user_id == db_user.id,
@@ -103,23 +170,27 @@ def verify_code_service(verify: VerifyCodeRequest, db: Session):
         db_user.is_active = True
         db.commit()
 
-    if hasattr(verify, 'device_id') and verify.device_id:
-        existing_device = db.query(DeviceVerification).filter(
-            DeviceVerification.user_id == db_user.id,
-            DeviceVerification.device_id == verify.device_id
-        ).first()
-        if existing_device:
-            existing_device.verified_at = datetime.utcnow()
-            existing_device.expires_at = datetime.utcnow() + timedelta(days=30)
-        else:
-            new_device = DeviceVerification(
-                user_id=db_user.id,
-                device_id=verify.device_id,
-                verified_at=datetime.utcnow(),
-                expires_at=datetime.utcnow() + timedelta(days=30)
-            )
-            db.add(new_device)
-        db.commit()
+    # Tự động tạo device_id từ thông tin thiết bị
+    device_id = generate_device_id(request)
+
+    # Kiểm tra và cập nhật thông tin thiết bị
+    existing_device = db.query(DeviceVerification).filter(
+        DeviceVerification.user_id == db_user.id,
+        DeviceVerification.device_id == device_id
+    ).first()
+
+    if existing_device:
+        existing_device.verified_at = datetime.utcnow()
+        existing_device.expires_at = datetime.utcnow() + timedelta(days=30)
+    else:
+        new_device = DeviceVerification(
+            user_id=db_user.id,
+            device_id=device_id,
+            verified_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(days=30)
+        )
+        db.add(new_device)
+    db.commit()
 
     access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(data={"sub": db_user.username}, expires_delta=access_token_expires)
